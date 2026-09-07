@@ -1,0 +1,161 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../data/reference_data.dart';
+import '../../models/manufacturer.dart';
+import '../../models/weapon.dart';
+import '../../repositories/manufacturer_repository.dart';
+import '../../repositories/weapon_repository.dart';
+import '../../widgets/confirm_dialog.dart';
+
+class WeaponDetailScreen extends StatefulWidget {
+  const WeaponDetailScreen({super.key, required this.id});
+
+  final int id;
+
+  @override
+  State<WeaponDetailScreen> createState() => _WeaponDetailScreenState();
+}
+
+class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
+  Weapon? _weapon;
+  Manufacturer? _manufacturer;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final weapon = await context.read<WeaponRepository>().findById(widget.id);
+    if (!mounted) return;
+    Manufacturer? manufacturer;
+    if (weapon != null) {
+      manufacturer = await context.read<ManufacturerRepository>().findById(weapon.manufacturerId);
+    }
+    if (!mounted) return;
+    setState(() {
+      _weapon = weapon;
+      _manufacturer = manufacturer;
+      _loading = false;
+    });
+  }
+
+  Future<void> _handleSoftDelete(Weapon w) async {
+    final ok = await confirmDialog(
+      context,
+      title: 'Удалить запись?',
+      message: 'Логическое удаление: запись скроется из списка, её можно восстановить.',
+    );
+    if (!ok || !mounted) return;
+    await context.read<WeaponRepository>().softDelete(w.id);
+    if (!mounted) return;
+    await _load();
+  }
+
+  Future<void> _handleRestore(Weapon w) async {
+    await context.read<WeaponRepository>().restore(w.id);
+    if (!mounted) return;
+    await _load();
+  }
+
+  Future<void> _handleHardDelete(Weapon w) async {
+    final ok = await confirmDialog(
+      context,
+      title: 'Удалить безвозвратно?',
+      message: 'Физическое удаление нельзя отменить.',
+      confirmLabel: 'Удалить навсегда',
+    );
+    if (!ok || !mounted) return;
+    await context.read<WeaponRepository>().hardDelete(w.id);
+    if (!mounted) return;
+    context.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final w = _weapon;
+    return Scaffold(
+      appBar: AppBar(title: Text(w?.name ?? 'Оружие')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : w == null
+              ? Center(child: Text('Запись №${widget.id} не найдена'))
+              : _buildContent(context, w),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, Weapon w) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (w.isDeleted)
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 12),
+                color: Colors.red.withValues(alpha: 0.1),
+                child: const Text('Эта запись удалена', style: TextStyle(color: Colors.red)),
+              ),
+            _row('Название', w.name),
+            _row('Артикул', w.sku),
+            _row('Год выпуска', '${w.year}'),
+            _row('Калибр', w.caliber),
+            _row('Производитель', _manufacturer?.name ?? '—'),
+            _row('Категории', w.categoryIds.map(categoryName).join(', ')),
+            _row('Цена', '${w.price} ₽'),
+            _row('На складе', '${w.stockAvailable} из ${w.stockTotal}'),
+            const SizedBox(height: 24),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (!w.isDeleted)
+                  OutlinedButton.icon(
+                    onPressed: () => _handleSoftDelete(w),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Удалить'),
+                  ),
+                if (w.isDeleted)
+                  OutlinedButton.icon(
+                    onPressed: () => _handleRestore(w),
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Восстановить'),
+                  ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: () => _handleHardDelete(w),
+                  icon: const Icon(Icons.delete_forever),
+                  label: const Text('Удалить навсегда'),
+                ),
+                TextButton(
+                  onPressed: () => context.pop(),
+                  child: const Text('Назад к списку'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 160, child: Text(label, style: const TextStyle(color: Colors.grey))),
+          Expanded(child: Text(value)),
+        ],
+      ),
+    );
+  }
+}
