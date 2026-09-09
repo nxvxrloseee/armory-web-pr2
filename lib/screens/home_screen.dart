@@ -24,6 +24,21 @@ class HomeScreen extends StatelessWidget {
               label: 'Производители',
               onTap: () => context.go('/manufacturers'),
             ),
+            _NavCard(
+              icon: Icons.category_outlined,
+              label: 'Категории',
+              onTap: () => context.go('/categories'),
+            ),
+            _NavCard(
+              icon: Icons.engineering_outlined,
+              label: 'Конструкторы',
+              onTap: () => context.go('/designers'),
+            ),
+            _NavCard(
+              icon: Icons.people_outline,
+              label: 'Покупатели',
+              onTap: () => context.go('/clients'),
+            ),
           ],
         ),
       ),

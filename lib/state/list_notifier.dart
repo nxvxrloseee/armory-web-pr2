@@ -1,23 +1,29 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/manufacturer.dart';
-import '../models/manufacturer_query.dart';
 import '../models/page_result.dart';
-import '../repositories/manufacturer_repository.dart';
+import '../repositories/list_repository.dart';
 import 'load_status.dart';
 
-class ManufacturerListNotifier extends ChangeNotifier {
-  final ManufacturerRepository _repository;
-  ManufacturerListNotifier(this._repository);
+/// Состояние списочного экрана (условия отбора, страница результатов,
+/// статус загрузки, выделение строк) одинаково устроено для всех пяти
+/// сущностей — единственное, что меняется, это конкретные [T]/[Q] и
+/// стартовое значение запроса. Раньше это было пять почти идентичных
+/// классов (WeaponListNotifier, ManufacturerListNotifier, ...); теперь один
+/// обобщённый, а разница сведена к типовым параметрам и [initialQuery].
+class ListNotifier<T, Q> extends ChangeNotifier {
+  ListNotifier(this._repository, this.initialQuery) : _query = initialQuery;
 
-  ManufacturerQuery _query = const ManufacturerQuery();
-  PageResult<Manufacturer> _result = PageResult.empty();
+  final ListRepository<T, Q> _repository;
+  final Q initialQuery;
+
+  Q _query;
+  PageResult<T> _result = PageResult.empty();
   LoadStatus _status = LoadStatus.idle;
   String? _error;
   final Set<int> _selected = {};
 
-  ManufacturerQuery get query => _query;
-  PageResult<Manufacturer> get result => _result;
+  Q get query => _query;
+  PageResult<T> get result => _result;
   LoadStatus get status => _status;
   String? get error => _error;
   Set<int> get selected => Set.unmodifiable(_selected);
@@ -37,9 +43,9 @@ class ManufacturerListNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> applyQuery(ManufacturerQuery next) async {
+  Future<void> applyQuery(Q next) async {
     _query = next;
-    _selected.clear();
+    _selected.clear(); // выделение теряет смысл при смене условий отбора
     await load();
   }
 

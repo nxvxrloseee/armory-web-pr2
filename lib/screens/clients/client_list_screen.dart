@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/manufacturer.dart';
-import '../../models/manufacturer_query.dart';
+import '../../models/client.dart';
+import '../../models/client_query.dart';
 import '../../state/list_notifier.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/debounced_search_field.dart';
@@ -11,16 +11,16 @@ import '../../widgets/entity_table.dart';
 import '../../widgets/pagination_bar.dart';
 import '../../widgets/status_view.dart';
 
-class ManufacturerListScreen extends StatefulWidget {
-  const ManufacturerListScreen({super.key, required this.query});
+class ClientListScreen extends StatefulWidget {
+  const ClientListScreen({super.key, required this.query});
 
-  final ManufacturerQuery query;
+  final ClientQuery query;
 
   @override
-  State<ManufacturerListScreen> createState() => _ManufacturerListScreenState();
+  State<ClientListScreen> createState() => _ClientListScreenState();
 }
 
-class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
+class _ClientListScreenState extends State<ClientListScreen> {
   @override
   void initState() {
     super.initState();
@@ -28,22 +28,22 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
   }
 
   @override
-  void didUpdateWidget(covariant ManufacturerListScreen oldWidget) {
+  void didUpdateWidget(covariant ClientListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.query != oldWidget.query) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _applyQuery(widget.query));
     }
   }
 
-  void _applyQuery(ManufacturerQuery query) {
-    context.read<ListNotifier<Manufacturer, ManufacturerQuery>>().applyQuery(query);
+  void _applyQuery(ClientQuery query) {
+    context.read<ListNotifier<Client, ClientQuery>>().applyQuery(query);
   }
 
-  void _navigate(ManufacturerQuery next) {
-    context.go(Uri(path: '/manufacturers', queryParameters: next.toQueryParameters()).toString());
+  void _navigate(ClientQuery next) {
+    context.go(Uri(path: '/clients', queryParameters: next.toQueryParameters()).toString());
   }
 
-  Future<void> _confirmDeleteSelected(ListNotifier<Manufacturer, ManufacturerQuery> notifier) async {
+  Future<void> _confirmDeleteSelected(ListNotifier<Client, ClientQuery> notifier) async {
     final count = notifier.selected.length;
     final ok = await confirmDialog(
       context,
@@ -55,21 +55,21 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final notifier = context.watch<ListNotifier<Manufacturer, ManufacturerQuery>>();
+    final notifier = context.watch<ListNotifier<Client, ClientQuery>>();
     final query = widget.query;
     final result = notifier.result;
     final hasActiveFilters = query.search.isNotEmpty || query.includeDeleted;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Производители'),
+        title: const Text('Покупатели'),
         leading: BackButton(onPressed: () => context.go('/')),
         actions: [
           IconButton(
-            tooltip: 'Добавить производителя',
+            tooltip: 'Добавить покупателя',
             icon: const Icon(Icons.add),
             onPressed: () async {
-              final changed = await context.push<bool>('/manufacturers/new');
+              final changed = await context.push<bool>('/clients/new');
               if (changed == true) _applyQuery(query);
             },
           ),
@@ -92,7 +92,7 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
                       width: 280,
                       child: DebouncedSearchField(
                         initialValue: query.search,
-                        hintText: 'Название или страна...',
+                        hintText: 'Имя или почта...',
                         onChanged: (value) => _navigate(query.copyWith(search: value)),
                       ),
                     ),
@@ -103,7 +103,7 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
                     ),
                     if (hasActiveFilters)
                       TextButton.icon(
-                        onPressed: () => _navigate(const ManufacturerQuery()),
+                        onPressed: () => _navigate(const ClientQuery()),
                         icon: const Icon(Icons.clear),
                         label: const Text('Сбросить'),
                       ),
@@ -137,53 +137,45 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
                 error: notifier.error,
                 isEmpty: result.items.isEmpty,
                 builder: (context) => SingleChildScrollView(
-                  child: EntityTable<Manufacturer>(
+                  child: EntityTable<Client>(
                     items: result.items,
-                    idOf: (m) => m.id,
-                    titleOf: (m) => m.name,
+                    idOf: (c) => c.id,
+                    titleOf: (c) => c.fullName,
                     selected: notifier.selected,
                     onToggleSelect: (id) => notifier.toggleSelection(id),
                     onToggleSelectAll: () =>
-                        notifier.toggleSelectAll(result.items.map((m) => m.id).toList()),
+                        notifier.toggleSelectAll(result.items.map((c) => c.id).toList()),
                     sortField: query.sortField,
                     sortAscending: query.sortAscending,
                     onSort: (field) => _navigate(query.copyWith(
                       sortField: field,
                       sortAscending: field == query.sortField ? !query.sortAscending : true,
                     )),
-                    onTap: (m) => context.push('/manufacturers/${m.id}'),
+                    onTap: (c) => context.push('/clients/${c.id}'),
                     columns: [
                       TableColumnSpec(
-                          label: 'Название', sortField: 'name', build: (m) => Text(m.name)),
+                          label: 'Имя', sortField: 'fullName', build: (c) => Text(c.fullName)),
+                      TableColumnSpec(label: 'Почта', sortField: 'email', build: (c) => Text(c.email)),
                       TableColumnSpec(
-                          label: 'Страна', sortField: 'country', build: (m) => Text(m.country)),
-                      TableColumnSpec(
-                        label: 'Год основания',
-                        sortField: 'founded',
-                        numeric: true,
-                        build: (m) => Text('${m.founded}'),
+                        label: 'Лицензия',
+                        build: (c) => Text(
+                          c.isLicenseExpired ? '${c.licenseNumber} (истекла)' : c.licenseNumber,
+                          style: TextStyle(color: c.isLicenseExpired ? Colors.red : null),
+                        ),
                       ),
                       if (query.includeDeleted)
                         TableColumnSpec(
                           label: 'Статус',
-                          build: (m) => m.isDeleted
+                          build: (c) => c.isDeleted
                               ? const Text('Удалено', style: TextStyle(color: Colors.red))
                               : const Text('Активно'),
                         ),
                     ],
-                    actions: (m) => [
+                    actions: (c) => [
                       IconButton(
                         tooltip: 'Открыть',
                         icon: const Icon(Icons.open_in_new),
-                        onPressed: () => context.push('/manufacturers/${m.id}'),
-                      ),
-                      IconButton(
-                        tooltip: 'Изменить',
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () async {
-                          final changed = await context.push<bool>('/manufacturers/${m.id}/edit');
-                          if (changed == true) _applyQuery(query);
-                        },
+                        onPressed: () => context.push('/clients/${c.id}'),
                       ),
                     ],
                   ),

@@ -6,6 +6,7 @@ class Weapon {
   final String caliber;
   final int manufacturerId;
   final List<int> categoryIds;
+  final List<int> designerIds;
   final int price;
   final int stockTotal;
   final int stockAvailable;
@@ -19,6 +20,7 @@ class Weapon {
     required this.caliber,
     required this.manufacturerId,
     required this.categoryIds,
+    required this.designerIds,
     required this.price,
     required this.stockTotal,
     required this.stockAvailable,
@@ -36,6 +38,7 @@ class Weapon {
     String? caliber,
     int? manufacturerId,
     List<int>? categoryIds,
+    List<int>? designerIds,
     int? price,
     int? stockTotal,
     int? stockAvailable,
@@ -50,10 +53,45 @@ class Weapon {
       caliber: caliber ?? this.caliber,
       manufacturerId: manufacturerId ?? this.manufacturerId,
       categoryIds: categoryIds ?? this.categoryIds,
+      designerIds: designerIds ?? this.designerIds,
       price: price ?? this.price,
       stockTotal: stockTotal ?? this.stockTotal,
       stockAvailable: stockAvailable ?? this.stockAvailable,
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'sku': sku,
+        'year': year,
+        'caliber': caliber,
+        'manufacturerId': manufacturerId,
+        'categoryIds': categoryIds,
+        'designerIds': designerIds,
+        'price': price,
+        'stockTotal': stockTotal,
+        'stockAvailable': stockAvailable,
+        'deletedAt': deletedAt?.toIso8601String(),
+      };
+
+  /// Устойчиво к отсутствующим/`null`/чужим по типу полям: тот же разбор
+  /// в ПР4 будет применяться к ответу настоящего сервера.
+  factory Weapon.fromJson(Map<String, dynamic> json) => Weapon(
+        id: json['id'] as int,
+        name: json['name'] as String? ?? '',
+        sku: json['sku'] as String? ?? '',
+        year: json['year'] as int? ?? 0,
+        caliber: json['caliber'] as String? ?? '',
+        manufacturerId: json['manufacturerId'] as int? ?? 0,
+        categoryIds: (json['categoryIds'] as List?)?.cast<int>() ?? const [],
+        designerIds: (json['designerIds'] as List?)?.cast<int>() ?? const [],
+        price: json['price'] as int? ?? 0,
+        stockTotal: json['stockTotal'] as int? ?? 0,
+        stockAvailable: json['stockAvailable'] as int? ?? 0,
+        deletedAt: json['deletedAt'] == null
+            ? null
+            : DateTime.parse(json['deletedAt'] as String),
+      );
 }

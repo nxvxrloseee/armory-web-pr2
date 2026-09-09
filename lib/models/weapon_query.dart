@@ -5,6 +5,7 @@ class WeaponQuery {
   final String search;
   final int? categoryId;
   final int? manufacturerId;
+  final int? designerId;
   final int? yearFrom;
   final int? yearTo;
   final String sortField;
@@ -17,6 +18,7 @@ class WeaponQuery {
     this.search = '',
     this.categoryId,
     this.manufacturerId,
+    this.designerId,
     this.yearFrom,
     this.yearTo,
     this.sortField = 'name',
@@ -36,6 +38,7 @@ class WeaponQuery {
     String? search,
     Object? categoryId = _unset,
     Object? manufacturerId = _unset,
+    Object? designerId = _unset,
     Object? yearFrom = _unset,
     Object? yearTo = _unset,
     String? sortField,
@@ -49,6 +52,7 @@ class WeaponQuery {
       categoryId: identical(categoryId, _unset) ? this.categoryId : categoryId as int?,
       manufacturerId:
           identical(manufacturerId, _unset) ? this.manufacturerId : manufacturerId as int?,
+      designerId: identical(designerId, _unset) ? this.designerId : designerId as int?,
       yearFrom: identical(yearFrom, _unset) ? this.yearFrom : yearFrom as int?,
       yearTo: identical(yearTo, _unset) ? this.yearTo : yearTo as int?,
       sortField: sortField ?? this.sortField,
@@ -68,6 +72,7 @@ class WeaponQuery {
     if (search.isNotEmpty) map['search'] = search;
     if (categoryId != null) map['categoryId'] = '$categoryId';
     if (manufacturerId != null) map['manufacturerId'] = '$manufacturerId';
+    if (designerId != null) map['designerId'] = '$designerId';
     if (yearFrom != null) map['yearFrom'] = '$yearFrom';
     if (yearTo != null) map['yearTo'] = '$yearTo';
     if (sortField != 'name' || !sortAscending) {
@@ -85,6 +90,7 @@ class WeaponQuery {
       search: q['search'] ?? '',
       categoryId: int.tryParse(q['categoryId'] ?? ''),
       manufacturerId: int.tryParse(q['manufacturerId'] ?? ''),
+      designerId: int.tryParse(q['designerId'] ?? ''),
       yearFrom: int.tryParse(q['yearFrom'] ?? ''),
       yearTo: int.tryParse(q['yearTo'] ?? ''),
       sortField: (sortRaw != null && sortRaw.isNotEmpty && sortRaw[0].isNotEmpty)

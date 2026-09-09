@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/reference_data.dart';
+import '../../models/category.dart';
+import '../../models/designer.dart';
 import '../../models/manufacturer.dart';
 import '../../models/weapon.dart';
 import '../../models/weapon_query.dart';
+import '../../repositories/category_repository.dart';
+import '../../repositories/designer_repository.dart';
 import '../../repositories/manufacturer_repository.dart';
-import '../../state/weapon_list_notifier.dart';
+import '../../state/list_notifier.dart';
 import '../../utils/debouncer.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/debounced_search_field.dart';
@@ -31,6 +34,8 @@ class WeaponListScreen extends StatefulWidget {
 
 class _WeaponListScreenState extends State<WeaponListScreen> {
   List<Manufacturer> _manufacturers = [];
+  List<Category> _categories = [];
+  List<Designer> _designers = [];
   final _yearDebouncer = Debouncer(duration: const Duration(milliseconds: 300));
   late final TextEditingController _yearFromController =
       TextEditingController(text: widget.query.yearFrom?.toString() ?? '');
@@ -40,7 +45,7 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadManufacturers();
+    _loadReferences();
     WidgetsBinding.instance.addPostFrameCallback((_) => _applyQuery(widget.query));
   }
 
@@ -62,13 +67,26 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
     super.dispose();
   }
 
-  Future<void> _loadManufacturers() async {
-    final list = await context.read<ManufacturerRepository>().listAll();
-    if (mounted) setState(() => _manufacturers = list);
+  Future<void> _loadReferences() async {
+    // Ссылки на репозитории берём до await: обращаться к context после
+    // асинхронного разрыва небезопасно, если виджет успеет размонтироваться.
+    final manufacturerRepository = context.read<ManufacturerRepository>();
+    final categoryRepository = context.read<CategoryRepository>();
+    final designerRepository = context.read<DesignerRepository>();
+
+    final manufacturers = await manufacturerRepository.listAll();
+    final categories = await categoryRepository.listAll();
+    final designers = await designerRepository.listAll();
+    if (!mounted) return;
+    setState(() {
+      _manufacturers = manufacturers;
+      _categories = categories;
+      _designers = designers;
+    });
   }
 
   void _applyQuery(WeaponQuery query) {
-    context.read<WeaponListNotifier>().applyQuery(query);
+    context.read<ListNotifier<Weapon, WeaponQuery>>().applyQuery(query);
   }
 
   void _navigate(WeaponQuery next) {
@@ -82,9 +100,29 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
     return '—';
   }
 
+  String _categoryNames(List<int> ids) {
+    if (ids.isEmpty) return '—';
+    return ids.map((id) {
+      for (final c in _categories) {
+        if (c.id == id) return c.name;
+      }
+      return '—';
+    }).join(', ');
+  }
+
+  String _designerNames(List<int> ids) {
+    if (ids.isEmpty) return '—';
+    return ids.map((id) {
+      for (final d in _designers) {
+        if (d.id == id) return d.fullName;
+      }
+      return '—';
+    }).join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final notifier = context.watch<WeaponListNotifier>();
+    final notifier = context.watch<ListNotifier<Weapon, WeaponQuery>>();
     final query = widget.query;
     final result = notifier.result;
 
@@ -92,6 +130,16 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
       appBar: AppBar(
         title: const Text('Оружие'),
         leading: BackButton(onPressed: () => context.go('/')),
+        actions: [
+          IconButton(
+            tooltip: 'Добавить оружие',
+            icon: const Icon(Icons.add),
+            onPressed: () async {
+              final changed = await context.push<bool>('/weapons/new');
+              if (changed == true) _applyQuery(query);
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -138,7 +186,11 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
                       ),
                       TableColumnSpec(
                         label: 'Категории',
-                        build: (w) => Text(w.categoryIds.map(categoryName).join(', ')),
+                        build: (w) => Text(_categoryNames(w.categoryIds)),
+                      ),
+                      TableColumnSpec(
+                        label: 'Конструкторы',
+                        build: (w) => Text(_designerNames(w.designerIds)),
                       ),
                       TableColumnSpec(
                         label: 'Производитель',
@@ -169,6 +221,14 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
                         icon: const Icon(Icons.open_in_new),
                         onPressed: () => context.push('/weapons/${w.id}'),
                       ),
+                      IconButton(
+                        tooltip: 'Изменить',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () async {
+                          final changed = await context.push<bool>('/weapons/${w.id}/edit');
+                          if (changed == true) _applyQuery(query);
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -193,6 +253,7 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
     final hasActiveFilters = query.search.isNotEmpty ||
         query.categoryId != null ||
         query.manufacturerId != null ||
+        query.designerId != null ||
         query.yearFrom != null ||
         query.yearTo != null ||
         query.includeDeleted;
@@ -232,7 +293,7 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
                     value: null,
                     child: Text('Все категории', overflow: TextOverflow.ellipsis),
                   ),
-                  ...categories.map((c) => DropdownMenuItem(
+                  ..._categories.map((c) => DropdownMenuItem(
                         value: c.id,
                         child: Text(c.name, overflow: TextOverflow.ellipsis),
                       )),
@@ -262,6 +323,30 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
                       )),
                 ],
                 onChanged: (value) => _navigate(query.copyWith(manufacturerId: value)),
+              ),
+            ),
+            SizedBox(
+              width: 210,
+              child: DropdownButtonFormField<int?>(
+                key: ValueKey('designer-${query.designerId}'),
+                initialValue: query.designerId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Конструктор',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('Все конструкторы', overflow: TextOverflow.ellipsis),
+                  ),
+                  ..._designers.map((d) => DropdownMenuItem(
+                        value: d.id,
+                        child: Text(d.fullName, overflow: TextOverflow.ellipsis),
+                      )),
+                ],
+                onChanged: (value) => _navigate(query.copyWith(designerId: value)),
               ),
             ),
             SizedBox(
@@ -315,7 +400,7 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
     );
   }
 
-  Widget _buildSelectionBar(BuildContext context, WeaponListNotifier notifier) {
+  Widget _buildSelectionBar(BuildContext context, ListNotifier<Weapon, WeaponQuery> notifier) {
     return Card(
       color: Theme.of(context).colorScheme.secondaryContainer,
       child: Padding(
@@ -335,7 +420,7 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
     );
   }
 
-  Future<void> _confirmDeleteSelected(WeaponListNotifier notifier) async {
+  Future<void> _confirmDeleteSelected(ListNotifier<Weapon, WeaponQuery> notifier) async {
     final count = notifier.selected.length;
     final ok = await confirmDialog(
       context,

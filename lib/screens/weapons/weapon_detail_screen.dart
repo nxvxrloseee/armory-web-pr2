@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/reference_data.dart';
+import '../../models/category.dart';
+import '../../models/designer.dart';
 import '../../models/manufacturer.dart';
 import '../../models/weapon.dart';
+import '../../repositories/category_repository.dart';
+import '../../repositories/designer_repository.dart';
 import '../../repositories/manufacturer_repository.dart';
 import '../../repositories/weapon_repository.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -21,6 +24,8 @@ class WeaponDetailScreen extends StatefulWidget {
 class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
   Weapon? _weapon;
   Manufacturer? _manufacturer;
+  List<Category> _categories = [];
+  List<Designer> _designers = [];
   bool _loading = true;
 
   @override
@@ -31,18 +36,46 @@ class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final weapon = await context.read<WeaponRepository>().findById(widget.id);
-    if (!mounted) return;
-    Manufacturer? manufacturer;
-    if (weapon != null) {
-      manufacturer = await context.read<ManufacturerRepository>().findById(weapon.manufacturerId);
-    }
+    // Ссылки на репозитории берём до await: обращаться к context после
+    // асинхронного разрыва небезопасно, если виджет успеет размонтироваться.
+    final weaponRepository = context.read<WeaponRepository>();
+    final manufacturerRepository = context.read<ManufacturerRepository>();
+    final categoryRepository = context.read<CategoryRepository>();
+    final designerRepository = context.read<DesignerRepository>();
+
+    final weapon = await weaponRepository.findById(widget.id);
+    final manufacturer =
+        weapon == null ? null : await manufacturerRepository.findById(weapon.manufacturerId);
+    final categories = await categoryRepository.listAll();
+    final designers = await designerRepository.listAll();
     if (!mounted) return;
     setState(() {
       _weapon = weapon;
       _manufacturer = manufacturer;
+      _categories = categories;
+      _designers = designers;
       _loading = false;
     });
+  }
+
+  String _categoryNames(List<int> ids) {
+    if (ids.isEmpty) return '—';
+    return ids.map((id) {
+      for (final c in _categories) {
+        if (c.id == id) return c.name;
+      }
+      return '—';
+    }).join(', ');
+  }
+
+  String _designerNames(List<int> ids) {
+    if (ids.isEmpty) return '—';
+    return ids.map((id) {
+      for (final d in _designers) {
+        if (d.id == id) return d.fullName;
+      }
+      return '—';
+    }).join(', ');
   }
 
   Future<void> _handleSoftDelete(Weapon w) async {
@@ -80,7 +113,20 @@ class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
   Widget build(BuildContext context) {
     final w = _weapon;
     return Scaffold(
-      appBar: AppBar(title: Text(w?.name ?? 'Оружие')),
+      appBar: AppBar(
+        title: Text(w?.name ?? 'Оружие'),
+        actions: [
+          if (w != null)
+            IconButton(
+              tooltip: 'Изменить',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () async {
+                final changed = await context.push<bool>('/weapons/${w.id}/edit');
+                if (changed == true) await _load();
+              },
+            ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : w == null
@@ -109,7 +155,8 @@ class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
             _row('Год выпуска', '${w.year}'),
             _row('Калибр', w.caliber),
             _row('Производитель', _manufacturer?.name ?? '—'),
-            _row('Категории', w.categoryIds.map(categoryName).join(', ')),
+            _row('Категории', _categoryNames(w.categoryIds)),
+            _row('Конструкторы', _designerNames(w.designerIds)),
             _row('Цена', '${w.price} ₽'),
             _row('На складе', '${w.stockAvailable} из ${w.stockTotal}'),
             const SizedBox(height: 24),

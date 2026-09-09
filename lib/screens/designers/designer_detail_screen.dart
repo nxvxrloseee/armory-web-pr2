@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/manufacturer.dart';
+import '../../models/designer.dart';
 import '../../models/weapon.dart';
 import '../../models/weapon_query.dart';
-import '../../repositories/manufacturer_repository.dart';
+import '../../repositories/designer_repository.dart';
 import '../../repositories/repository_exceptions.dart';
 import '../../repositories/weapon_repository.dart';
 import '../../widgets/confirm_dialog.dart';
 
-class ManufacturerDetailScreen extends StatefulWidget {
-  const ManufacturerDetailScreen({super.key, required this.id});
+class DesignerDetailScreen extends StatefulWidget {
+  const DesignerDetailScreen({super.key, required this.id});
 
   final int id;
 
   @override
-  State<ManufacturerDetailScreen> createState() => _ManufacturerDetailScreenState();
+  State<DesignerDetailScreen> createState() => _DesignerDetailScreenState();
 }
 
-class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
-  Manufacturer? _manufacturer;
+class _DesignerDetailScreenState extends State<DesignerDetailScreen> {
+  Designer? _designer;
   List<Weapon> _weapons = [];
   bool _loading = true;
 
@@ -32,23 +32,23 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final manufacturer = await context.read<ManufacturerRepository>().findById(widget.id);
+    final designer = await context.read<DesignerRepository>().findById(widget.id);
     if (!mounted) return;
-    final weapons = manufacturer == null
+    final weapons = designer == null
         ? <Weapon>[]
         : (await context
                 .read<WeaponRepository>()
-                .find(WeaponQuery(manufacturerId: manufacturer.id, size: 100)))
+                .find(WeaponQuery(designerId: designer.id, size: 100)))
             .items;
     if (!mounted) return;
     setState(() {
-      _manufacturer = manufacturer;
+      _designer = designer;
       _weapons = weapons;
       _loading = false;
     });
   }
 
-  Future<void> _handleSoftDelete(Manufacturer m) async {
+  Future<void> _handleSoftDelete(Designer d) async {
     final ok = await confirmDialog(
       context,
       title: 'Удалить запись?',
@@ -56,13 +56,37 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
     );
     if (!ok || !mounted) return;
     try {
-      await context.read<ManufacturerRepository>().softDelete(m.id);
+      await context.read<DesignerRepository>().softDelete(d.id);
     } on ReferentialIntegrityException catch (e) {
       if (mounted) _showBlockedDialog(e.message);
       return;
     }
     if (!mounted) return;
     await _load();
+  }
+
+  Future<void> _handleRestore(Designer d) async {
+    await context.read<DesignerRepository>().restore(d.id);
+    if (!mounted) return;
+    await _load();
+  }
+
+  Future<void> _handleHardDelete(Designer d) async {
+    final ok = await confirmDialog(
+      context,
+      title: 'Удалить безвозвратно?',
+      message: 'Физическое удаление нельзя отменить.',
+      confirmLabel: 'Удалить навсегда',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await context.read<DesignerRepository>().hardDelete(d.id);
+    } on ReferentialIntegrityException catch (e) {
+      if (mounted) _showBlockedDialog(e.message);
+      return;
+    }
+    if (!mounted) return;
+    context.pop();
   }
 
   void _showBlockedDialog(String message) {
@@ -78,43 +102,19 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
     );
   }
 
-  Future<void> _handleRestore(Manufacturer m) async {
-    await context.read<ManufacturerRepository>().restore(m.id);
-    if (!mounted) return;
-    await _load();
-  }
-
-  Future<void> _handleHardDelete(Manufacturer m) async {
-    final ok = await confirmDialog(
-      context,
-      title: 'Удалить безвозвратно?',
-      message: 'Физическое удаление нельзя отменить.',
-      confirmLabel: 'Удалить навсегда',
-    );
-    if (!ok || !mounted) return;
-    try {
-      await context.read<ManufacturerRepository>().hardDelete(m.id);
-    } on ReferentialIntegrityException catch (e) {
-      if (mounted) _showBlockedDialog(e.message);
-      return;
-    }
-    if (!mounted) return;
-    context.pop();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final m = _manufacturer;
+    final d = _designer;
     return Scaffold(
       appBar: AppBar(
-        title: Text(m?.name ?? 'Производитель'),
+        title: Text(d?.fullName ?? 'Конструктор'),
         actions: [
-          if (m != null)
+          if (d != null)
             IconButton(
               tooltip: 'Изменить',
               icon: const Icon(Icons.edit_outlined),
               onPressed: () async {
-                final changed = await context.push<bool>('/manufacturers/${m.id}/edit');
+                final changed = await context.push<bool>('/designers/${d.id}/edit');
                 if (changed == true) await _load();
               },
             ),
@@ -122,13 +122,13 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : m == null
+          : d == null
               ? Center(child: Text('Запись №${widget.id} не найдена'))
-              : _buildContent(context, m),
+              : _buildContent(context, d),
     );
   }
 
-  Widget _buildContent(BuildContext context, Manufacturer m) {
+  Widget _buildContent(BuildContext context, Designer d) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ConstrainedBox(
@@ -136,22 +136,22 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (m.isDeleted)
+            if (d.isDeleted)
               Container(
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 12),
                 color: Colors.red.withValues(alpha: 0.1),
                 child: const Text('Эта запись удалена', style: TextStyle(color: Colors.red)),
               ),
-            _row('Название', m.name),
-            _row('Страна', m.country),
-            _row('Год основания', '${m.founded}'),
+            _row('Имя', d.fullName),
+            _row('Страна', d.country),
+            _row('Работает с', '${d.activeSince}'),
             const SizedBox(height: 16),
-            Text('Модели в каталоге (${_weapons.length})',
+            Text('Оружие в разработке (${_weapons.length})',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             if (_weapons.isEmpty)
-              const Text('Нет моделей этого производителя')
+              const Text('Нет оружия этого конструктора')
             else
               for (final w in _weapons)
                 ListTile(
@@ -165,21 +165,21 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
             Wrap(
               spacing: 8,
               children: [
-                if (!m.isDeleted)
+                if (!d.isDeleted)
                   OutlinedButton.icon(
-                    onPressed: () => _handleSoftDelete(m),
+                    onPressed: () => _handleSoftDelete(d),
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Удалить'),
                   ),
-                if (m.isDeleted)
+                if (d.isDeleted)
                   OutlinedButton.icon(
-                    onPressed: () => _handleRestore(m),
+                    onPressed: () => _handleRestore(d),
                     icon: const Icon(Icons.restore),
                     label: const Text('Восстановить'),
                   ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  onPressed: () => _handleHardDelete(m),
+                  onPressed: () => _handleHardDelete(d),
                   icon: const Icon(Icons.delete_forever),
                   label: const Text('Удалить навсегда'),
                 ),

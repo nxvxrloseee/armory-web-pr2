@@ -2,25 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/manufacturer.dart';
+import '../../models/category.dart';
 import '../../models/weapon.dart';
 import '../../models/weapon_query.dart';
-import '../../repositories/manufacturer_repository.dart';
+import '../../repositories/category_repository.dart';
 import '../../repositories/repository_exceptions.dart';
 import '../../repositories/weapon_repository.dart';
 import '../../widgets/confirm_dialog.dart';
 
-class ManufacturerDetailScreen extends StatefulWidget {
-  const ManufacturerDetailScreen({super.key, required this.id});
+class CategoryDetailScreen extends StatefulWidget {
+  const CategoryDetailScreen({super.key, required this.id});
 
   final int id;
 
   @override
-  State<ManufacturerDetailScreen> createState() => _ManufacturerDetailScreenState();
+  State<CategoryDetailScreen> createState() => _CategoryDetailScreenState();
 }
 
-class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
-  Manufacturer? _manufacturer;
+class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
+  Category? _category;
   List<Weapon> _weapons = [];
   bool _loading = true;
 
@@ -32,23 +32,23 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final manufacturer = await context.read<ManufacturerRepository>().findById(widget.id);
+    final category = await context.read<CategoryRepository>().findById(widget.id);
     if (!mounted) return;
-    final weapons = manufacturer == null
+    final weapons = category == null
         ? <Weapon>[]
         : (await context
                 .read<WeaponRepository>()
-                .find(WeaponQuery(manufacturerId: manufacturer.id, size: 100)))
+                .find(WeaponQuery(categoryId: category.id, size: 100)))
             .items;
     if (!mounted) return;
     setState(() {
-      _manufacturer = manufacturer;
+      _category = category;
       _weapons = weapons;
       _loading = false;
     });
   }
 
-  Future<void> _handleSoftDelete(Manufacturer m) async {
+  Future<void> _handleSoftDelete(Category c) async {
     final ok = await confirmDialog(
       context,
       title: 'Удалить запись?',
@@ -56,13 +56,37 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
     );
     if (!ok || !mounted) return;
     try {
-      await context.read<ManufacturerRepository>().softDelete(m.id);
+      await context.read<CategoryRepository>().softDelete(c.id);
     } on ReferentialIntegrityException catch (e) {
       if (mounted) _showBlockedDialog(e.message);
       return;
     }
     if (!mounted) return;
     await _load();
+  }
+
+  Future<void> _handleRestore(Category c) async {
+    await context.read<CategoryRepository>().restore(c.id);
+    if (!mounted) return;
+    await _load();
+  }
+
+  Future<void> _handleHardDelete(Category c) async {
+    final ok = await confirmDialog(
+      context,
+      title: 'Удалить безвозвратно?',
+      message: 'Физическое удаление нельзя отменить.',
+      confirmLabel: 'Удалить навсегда',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await context.read<CategoryRepository>().hardDelete(c.id);
+    } on ReferentialIntegrityException catch (e) {
+      if (mounted) _showBlockedDialog(e.message);
+      return;
+    }
+    if (!mounted) return;
+    context.pop();
   }
 
   void _showBlockedDialog(String message) {
@@ -78,43 +102,19 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
     );
   }
 
-  Future<void> _handleRestore(Manufacturer m) async {
-    await context.read<ManufacturerRepository>().restore(m.id);
-    if (!mounted) return;
-    await _load();
-  }
-
-  Future<void> _handleHardDelete(Manufacturer m) async {
-    final ok = await confirmDialog(
-      context,
-      title: 'Удалить безвозвратно?',
-      message: 'Физическое удаление нельзя отменить.',
-      confirmLabel: 'Удалить навсегда',
-    );
-    if (!ok || !mounted) return;
-    try {
-      await context.read<ManufacturerRepository>().hardDelete(m.id);
-    } on ReferentialIntegrityException catch (e) {
-      if (mounted) _showBlockedDialog(e.message);
-      return;
-    }
-    if (!mounted) return;
-    context.pop();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final m = _manufacturer;
+    final c = _category;
     return Scaffold(
       appBar: AppBar(
-        title: Text(m?.name ?? 'Производитель'),
+        title: Text(c?.name ?? 'Категория'),
         actions: [
-          if (m != null)
+          if (c != null)
             IconButton(
               tooltip: 'Изменить',
               icon: const Icon(Icons.edit_outlined),
               onPressed: () async {
-                final changed = await context.push<bool>('/manufacturers/${m.id}/edit');
+                final changed = await context.push<bool>('/categories/${c.id}/edit');
                 if (changed == true) await _load();
               },
             ),
@@ -122,13 +122,13 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : m == null
+          : c == null
               ? Center(child: Text('Запись №${widget.id} не найдена'))
-              : _buildContent(context, m),
+              : _buildContent(context, c),
     );
   }
 
-  Widget _buildContent(BuildContext context, Manufacturer m) {
+  Widget _buildContent(BuildContext context, Category c) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ConstrainedBox(
@@ -136,22 +136,20 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (m.isDeleted)
+            if (c.isDeleted)
               Container(
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 12),
                 color: Colors.red.withValues(alpha: 0.1),
                 child: const Text('Эта запись удалена', style: TextStyle(color: Colors.red)),
               ),
-            _row('Название', m.name),
-            _row('Страна', m.country),
-            _row('Год основания', '${m.founded}'),
+            Text('Название: ${c.name}'),
             const SizedBox(height: 16),
-            Text('Модели в каталоге (${_weapons.length})',
+            Text('Оружие в категории (${_weapons.length})',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             if (_weapons.isEmpty)
-              const Text('Нет моделей этого производителя')
+              const Text('Нет оружия этой категории')
             else
               for (final w in _weapons)
                 ListTile(
@@ -165,21 +163,21 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
             Wrap(
               spacing: 8,
               children: [
-                if (!m.isDeleted)
+                if (!c.isDeleted)
                   OutlinedButton.icon(
-                    onPressed: () => _handleSoftDelete(m),
+                    onPressed: () => _handleSoftDelete(c),
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Удалить'),
                   ),
-                if (m.isDeleted)
+                if (c.isDeleted)
                   OutlinedButton.icon(
-                    onPressed: () => _handleRestore(m),
+                    onPressed: () => _handleRestore(c),
                     icon: const Icon(Icons.restore),
                     label: const Text('Восстановить'),
                   ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  onPressed: () => _handleHardDelete(m),
+                  onPressed: () => _handleHardDelete(c),
                   icon: const Icon(Icons.delete_forever),
                   label: const Text('Удалить навсегда'),
                 ),
@@ -191,19 +189,6 @@ class _ManufacturerDetailScreenState extends State<ManufacturerDetailScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 160, child: Text(label, style: const TextStyle(color: Colors.grey))),
-          Expanded(child: Text(value)),
-        ],
       ),
     );
   }

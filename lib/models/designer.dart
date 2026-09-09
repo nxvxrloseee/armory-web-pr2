@@ -1,51 +1,49 @@
-class Manufacturer {
+class Designer {
   final int id;
-  final String name;
+  final String fullName;
   final String country;
-  final int founded;
+  final int activeSince;
   final DateTime? deletedAt;
 
-  const Manufacturer({
+  const Designer({
     required this.id,
-    required this.name,
+    required this.fullName,
     required this.country,
-    required this.founded,
+    required this.activeSince,
     this.deletedAt,
   });
 
   bool get isDeleted => deletedAt != null;
 
-  /// Без параметра [clearDeletedAt] нельзя отличить «не менять поле» от
-  /// «установить null»: оба случая выглядят как переданный null.
-  Manufacturer copyWith({
-    String? name,
+  Designer copyWith({
+    String? fullName,
     String? country,
-    int? founded,
+    int? activeSince,
     DateTime? deletedAt,
     bool clearDeletedAt = false,
   }) {
-    return Manufacturer(
+    return Designer(
       id: id,
-      name: name ?? this.name,
+      fullName: fullName ?? this.fullName,
       country: country ?? this.country,
-      founded: founded ?? this.founded,
+      activeSince: activeSince ?? this.activeSince,
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'name': name,
+        'fullName': fullName,
         'country': country,
-        'founded': founded,
+        'activeSince': activeSince,
         'deletedAt': deletedAt?.toIso8601String(),
       };
 
-  factory Manufacturer.fromJson(Map<String, dynamic> json) => Manufacturer(
+  factory Designer.fromJson(Map<String, dynamic> json) => Designer(
         id: json['id'] as int,
-        name: json['name'] as String? ?? '',
+        fullName: json['fullName'] as String? ?? '',
         country: json['country'] as String? ?? '',
-        founded: json['founded'] as int? ?? 0,
+        activeSince: json['activeSince'] as int? ?? 0,
         deletedAt: json['deletedAt'] == null
             ? null
             : DateTime.parse(json['deletedAt'] as String),
