@@ -155,6 +155,7 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
                 status: notifier.status,
                 error: notifier.error,
                 isEmpty: result.items.isEmpty,
+                onRetry: notifier.load,
                 builder: (context) => SingleChildScrollView(
                   child: EntityTable<Weapon>(
                     items: result.items,

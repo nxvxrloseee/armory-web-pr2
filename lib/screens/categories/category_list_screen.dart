@@ -136,6 +136,7 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
                 status: notifier.status,
                 error: notifier.error,
                 isEmpty: result.items.isEmpty,
+                onRetry: notifier.load,
                 builder: (context) => SingleChildScrollView(
                   child: EntityTable<Category>(
                     items: result.items,

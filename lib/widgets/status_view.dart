@@ -13,6 +13,7 @@ class StatusView extends StatelessWidget {
     required this.isEmpty,
     required this.builder,
     this.emptyMessage = 'Ничего не найдено',
+    this.onRetry,
   });
 
   final LoadStatus status;
@@ -20,6 +21,7 @@ class StatusView extends StatelessWidget {
   final bool isEmpty;
   final WidgetBuilder builder;
   final String emptyMessage;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +44,14 @@ class StatusView extends StatelessWidget {
                 const Icon(Icons.error_outline, color: Colors.red, size: 40),
                 const SizedBox(height: 12),
                 Text(error ?? 'Произошла ошибка', textAlign: TextAlign.center),
+                if (onRetry != null) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Повторить'),
+                  ),
+                ],
               ],
             ),
           ),

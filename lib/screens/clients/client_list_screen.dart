@@ -136,6 +136,7 @@ class _ClientListScreenState extends State<ClientListScreen> {
                 status: notifier.status,
                 error: notifier.error,
                 isEmpty: result.items.isEmpty,
+                onRetry: notifier.load,
                 builder: (context) => SingleChildScrollView(
                   child: EntityTable<Client>(
                     items: result.items,

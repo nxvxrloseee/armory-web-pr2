@@ -136,6 +136,7 @@ class _DesignerListScreenState extends State<DesignerListScreen> {
                 status: notifier.status,
                 error: notifier.error,
                 isEmpty: result.items.isEmpty,
+                onRetry: notifier.load,
                 builder: (context) => SingleChildScrollView(
                   child: EntityTable<Designer>(
                     items: result.items,

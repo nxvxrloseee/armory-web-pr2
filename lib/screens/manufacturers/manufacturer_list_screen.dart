@@ -136,6 +136,7 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
                 status: notifier.status,
                 error: notifier.error,
                 isEmpty: result.items.isEmpty,
+                onRetry: notifier.load,
                 builder: (context) => SingleChildScrollView(
                   child: EntityTable<Manufacturer>(
                     items: result.items,
