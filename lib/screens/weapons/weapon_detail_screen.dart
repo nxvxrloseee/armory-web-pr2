@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_exceptions.dart';
 import '../../models/category.dart';
 import '../../models/designer.dart';
 import '../../models/manufacturer.dart';
+import '../../models/role.dart';
 import '../../models/weapon.dart';
 import '../../repositories/category_repository.dart';
 import '../../repositories/designer_repository.dart';
 import '../../repositories/manufacturer_repository.dart';
+import '../../repositories/order_repository.dart';
 import '../../repositories/weapon_repository.dart';
+import '../../state/auth_notifier.dart';
 import '../../widgets/confirm_dialog.dart';
 
 class WeaponDetailScreen extends StatefulWidget {
@@ -109,14 +113,34 @@ class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
     context.pop();
   }
 
+  Future<void> _order(Weapon w) async {
+    try {
+      await context.read<OrderRepository>().create(w.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Заказ оформлен — заберите в магазине.')),
+      );
+      await _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final w = _weapon;
+    // Кнопка редактирования недоступна покупателю не потому, что её кто-то
+    // спрятал специально ради защиты — это то же самое "уборка интерфейса",
+    // что и ниже: реальный запрет живёт на сервере (RequireRole(RoleSeller)).
+    final auth = context.watch<AuthNotifier>();
+    final isStaff = auth.has(Role.seller);
+    final isAdmin = auth.has(Role.admin);
     return Scaffold(
       appBar: AppBar(
         title: Text(w?.name ?? 'Оружие'),
         actions: [
-          if (w != null)
+          if (w != null && isStaff)
             IconButton(
               tooltip: 'Изменить',
               icon: const Icon(Icons.edit_outlined),
@@ -131,11 +155,11 @@ class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : w == null
               ? Center(child: Text('Запись №${widget.id} не найдена'))
-              : _buildContent(context, w),
+              : _buildContent(context, w, isStaff, isAdmin),
     );
   }
 
-  Widget _buildContent(BuildContext context, Weapon w) {
+  Widget _buildContent(BuildContext context, Weapon w, bool isStaff, bool isAdmin) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: ConstrainedBox(
@@ -163,24 +187,31 @@ class _WeaponDetailScreenState extends State<WeaponDetailScreen> {
             Wrap(
               spacing: 8,
               children: [
-                if (!w.isDeleted)
+                if (!isStaff && !w.isDeleted)
+                  FilledButton.icon(
+                    onPressed: w.stockAvailable > 0 ? () => _order(w) : null,
+                    icon: const Icon(Icons.shopping_cart_outlined),
+                    label: Text(w.stockAvailable > 0 ? 'Заказать' : 'Нет в наличии'),
+                  ),
+                if (isStaff && !w.isDeleted)
                   OutlinedButton.icon(
                     onPressed: () => _handleSoftDelete(w),
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Удалить'),
                   ),
-                if (w.isDeleted)
+                if (isAdmin && w.isDeleted)
                   OutlinedButton.icon(
                     onPressed: () => _handleRestore(w),
                     icon: const Icon(Icons.restore),
                     label: const Text('Восстановить'),
                   ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  onPressed: () => _handleHardDelete(w),
-                  icon: const Icon(Icons.delete_forever),
-                  label: const Text('Удалить навсегда'),
-                ),
+                if (isAdmin)
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                    onPressed: () => _handleHardDelete(w),
+                    icon: const Icon(Icons.delete_forever),
+                    label: const Text('Удалить навсегда'),
+                  ),
                 TextButton(
                   onPressed: () => context.pop(),
                   child: const Text('Назад к списку'),

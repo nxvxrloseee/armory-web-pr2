@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 import '../../models/category.dart';
 import '../../models/designer.dart';
 import '../../models/manufacturer.dart';
+import '../../models/role.dart';
 import '../../models/weapon.dart';
 import '../../models/weapon_query.dart';
 import '../../repositories/category_repository.dart';
 import '../../repositories/designer_repository.dart';
 import '../../repositories/manufacturer_repository.dart';
+import '../../state/auth_notifier.dart';
 import '../../state/list_notifier.dart';
 import '../../utils/debouncer.dart';
 import '../../widgets/confirm_dialog.dart';
@@ -123,6 +125,7 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<ListNotifier<Weapon, WeaponQuery>>();
+    final isStaff = context.watch<AuthNotifier>().has(Role.seller);
     final query = widget.query;
     final result = notifier.result;
 
@@ -131,14 +134,15 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
         title: const Text('Оружие'),
         leading: BackButton(onPressed: () => context.go('/')),
         actions: [
-          IconButton(
-            tooltip: 'Добавить оружие',
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final changed = await context.push<bool>('/weapons/new');
-              if (changed == true) _applyQuery(query);
-            },
-          ),
+          if (isStaff)
+            IconButton(
+              tooltip: 'Добавить оружие',
+              icon: const Icon(Icons.add),
+              onPressed: () async {
+                final changed = await context.push<bool>('/weapons/new');
+                if (changed == true) _applyQuery(query);
+              },
+            ),
         ],
       ),
       body: Padding(
@@ -222,14 +226,15 @@ class _WeaponListScreenState extends State<WeaponListScreen> {
                         icon: const Icon(Icons.open_in_new),
                         onPressed: () => context.push('/weapons/${w.id}'),
                       ),
-                      IconButton(
-                        tooltip: 'Изменить',
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () async {
-                          final changed = await context.push<bool>('/weapons/${w.id}/edit');
-                          if (changed == true) _applyQuery(query);
-                        },
-                      ),
+                      if (isStaff)
+                        IconButton(
+                          tooltip: 'Изменить',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () async {
+                            final changed = await context.push<bool>('/weapons/${w.id}/edit');
+                            if (changed == true) _applyQuery(query);
+                          },
+                        ),
                     ],
                   ),
                 ),

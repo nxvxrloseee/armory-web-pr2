@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/designer.dart';
 import '../../models/designer_query.dart';
+import '../../models/role.dart';
+import '../../state/auth_notifier.dart';
 import '../../state/list_notifier.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/debounced_search_field.dart';
@@ -56,6 +58,7 @@ class _DesignerListScreenState extends State<DesignerListScreen> {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<ListNotifier<Designer, DesignerQuery>>();
+    final isStaff = context.watch<AuthNotifier>().has(Role.seller);
     final query = widget.query;
     final result = notifier.result;
     final hasActiveFilters = query.search.isNotEmpty || query.includeDeleted;
@@ -65,14 +68,15 @@ class _DesignerListScreenState extends State<DesignerListScreen> {
         title: const Text('Конструкторы'),
         leading: BackButton(onPressed: () => context.go('/')),
         actions: [
-          IconButton(
-            tooltip: 'Добавить конструктора',
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final changed = await context.push<bool>('/designers/new');
-              if (changed == true) _applyQuery(query);
-            },
-          ),
+          if (isStaff)
+            IconButton(
+              tooltip: 'Добавить конструктора',
+              icon: const Icon(Icons.add),
+              onPressed: () async {
+                final changed = await context.push<bool>('/designers/new');
+                if (changed == true) _applyQuery(query);
+              },
+            ),
         ],
       ),
       body: Padding(

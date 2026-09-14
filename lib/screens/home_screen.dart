@@ -1,13 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../models/role.dart';
+import '../state/auth_notifier.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthNotifier>();
+    final user = auth.user;
+    final isStaff = auth.has(Role.seller);
+    final isAdmin = auth.has(Role.admin);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Оружейный магазин — каталог')),
+      appBar: AppBar(
+        title: const Text('Оружейный магазин — каталог'),
+        actions: [
+          if (user != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(child: Text('${user.fullName} · ${user.role.label}')),
+            ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Выйти',
+            onPressed: () => auth.logout(),
+          ),
+        ],
+      ),
       body: Center(
         child: Wrap(
           spacing: 16,
@@ -34,11 +57,25 @@ class HomeScreen extends StatelessWidget {
               label: 'Конструкторы',
               onTap: () => context.go('/designers'),
             ),
+            // Список всех покупателей — персональные данные, доступны
+            // только сотрудникам магазина (продавец/администратор).
+            if (isStaff)
+              _NavCard(
+                icon: Icons.people_outline,
+                label: 'Покупатели',
+                onTap: () => context.go('/clients'),
+              ),
             _NavCard(
-              icon: Icons.people_outline,
-              label: 'Покупатели',
-              onTap: () => context.go('/clients'),
+              icon: Icons.receipt_long_outlined,
+              label: isStaff ? 'Заказы' : 'Мои заказы',
+              onTap: () => context.go('/orders'),
             ),
+            if (isAdmin)
+              _NavCard(
+                icon: Icons.admin_panel_settings_outlined,
+                label: 'Администрирование',
+                onTap: () => context.go('/admin'),
+              ),
           ],
         ),
       ),

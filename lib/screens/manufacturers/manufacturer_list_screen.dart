@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/manufacturer.dart';
 import '../../models/manufacturer_query.dart';
+import '../../models/role.dart';
+import '../../state/auth_notifier.dart';
 import '../../state/list_notifier.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/debounced_search_field.dart';
@@ -56,6 +58,7 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<ListNotifier<Manufacturer, ManufacturerQuery>>();
+    final isStaff = context.watch<AuthNotifier>().has(Role.seller);
     final query = widget.query;
     final result = notifier.result;
     final hasActiveFilters = query.search.isNotEmpty || query.includeDeleted;
@@ -65,14 +68,15 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
         title: const Text('Производители'),
         leading: BackButton(onPressed: () => context.go('/')),
         actions: [
-          IconButton(
-            tooltip: 'Добавить производителя',
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final changed = await context.push<bool>('/manufacturers/new');
-              if (changed == true) _applyQuery(query);
-            },
-          ),
+          if (isStaff)
+            IconButton(
+              tooltip: 'Добавить производителя',
+              icon: const Icon(Icons.add),
+              onPressed: () async {
+                final changed = await context.push<bool>('/manufacturers/new');
+                if (changed == true) _applyQuery(query);
+              },
+            ),
         ],
       ),
       body: Padding(
@@ -178,14 +182,15 @@ class _ManufacturerListScreenState extends State<ManufacturerListScreen> {
                         icon: const Icon(Icons.open_in_new),
                         onPressed: () => context.push('/manufacturers/${m.id}'),
                       ),
-                      IconButton(
-                        tooltip: 'Изменить',
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () async {
-                          final changed = await context.push<bool>('/manufacturers/${m.id}/edit');
-                          if (changed == true) _applyQuery(query);
-                        },
-                      ),
+                      if (isStaff)
+                        IconButton(
+                          tooltip: 'Изменить',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () async {
+                            final changed = await context.push<bool>('/manufacturers/${m.id}/edit');
+                            if (changed == true) _applyQuery(query);
+                          },
+                        ),
                     ],
                   ),
                 ),

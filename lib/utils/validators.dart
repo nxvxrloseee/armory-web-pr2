@@ -68,6 +68,22 @@ class Validators {
     };
   }
 
+  /// Зеркалит серверную проверку (armory_api/internal/auth/password.go,
+  /// ValidatePasswordStrength) — задание ПР5 требует проверку по мере
+  /// ввода, а не только при отправке формы, поэтому она нужна и здесь, а
+  /// не только на сервере.
+  static FieldValidator password() {
+    return (value) {
+      final v = value ?? '';
+      if (v.length < 8) return 'Пароль должен быть не короче 8 символов';
+      final hasDigit = RegExp(r'[0-9]').hasMatch(v);
+      final hasSpecial = RegExp(r'[^a-zA-Zа-яА-Я0-9\s]').hasMatch(v);
+      if (!hasDigit) return 'Пароль должен содержать хотя бы одну цифру';
+      if (!hasSpecial) return 'Пароль должен содержать хотя бы один специальный символ';
+      return null;
+    };
+  }
+
   /// Для множественного выбора (`FormField<List<int>>`, см. приложение Б,
   /// раздел 4) — хотя бы один элемент должен быть выбран.
   static String? nonEmptySelection(List<int>? value, [String message = 'Выберите хотя бы одно значение']) {

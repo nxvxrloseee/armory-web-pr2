@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/category.dart';
 import '../../models/category_query.dart';
+import '../../models/role.dart';
+import '../../state/auth_notifier.dart';
 import '../../state/list_notifier.dart';
 import '../../widgets/confirm_dialog.dart';
 import '../../widgets/debounced_search_field.dart';
@@ -56,6 +58,7 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<ListNotifier<Category, CategoryQuery>>();
+    final isStaff = context.watch<AuthNotifier>().has(Role.seller);
     final query = widget.query;
     final result = notifier.result;
     final hasActiveFilters = query.search.isNotEmpty || query.includeDeleted;
@@ -65,14 +68,15 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
         title: const Text('Категории'),
         leading: BackButton(onPressed: () => context.go('/')),
         actions: [
-          IconButton(
-            tooltip: 'Добавить категорию',
-            icon: const Icon(Icons.add),
-            onPressed: () async {
-              final changed = await context.push<bool>('/categories/new');
-              if (changed == true) _applyQuery(query);
-            },
-          ),
+          if (isStaff)
+            IconButton(
+              tooltip: 'Добавить категорию',
+              icon: const Icon(Icons.add),
+              onPressed: () async {
+                final changed = await context.push<bool>('/categories/new');
+                if (changed == true) _applyQuery(query);
+              },
+            ),
         ],
       ),
       body: Padding(
